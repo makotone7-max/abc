@@ -47,3 +47,27 @@ Threads公式API (Graph API) を使い、GitHub Actionsの定期実行で `conte
 
 - 長期アクセストークンには有効期限があるため、失効前に再取得してSecretsを更新してください。
 - 画像付き投稿や返信投稿など高度な機能が必要な場合は `scripts/post_to_threads.py` の `media_type` や追加パラメータを拡張してください。
+
+## Instagram 自動投稿
+
+Instagram API (Instagram Login方式、Facebookページ不要) を使い、`content/instagram_queue.jsonl` の画像+キャプションを1件ずつ自動投稿する仕組みです。Threadsと違い、Instagramのフィード投稿には画像が必須です。
+
+### 仕組み
+
+- `content/images/`: 投稿する画像ファイルを置く場所
+- `content/instagram_queue.jsonl`: 1行1投稿。`{"image": "content/images/xxx.jpg", "caption": "..."}`形式のJSON Lines。上から順に投稿し、成功した行は削除されます。
+- 画像は本リポジトリが public であることを利用し、`https://raw.githubusercontent.com/makotone7-max/abc/main/<path>` 経由でInstagramに参照させます(画像は事前にmainブランチにpushされている必要があります)。
+- `scripts/post_to_instagram.py`: キューの先頭を読み取り、Instagram Graph APIでメディアコンテナ作成→公開を行うスクリプト。
+- `.github/workflows/post-to-instagram.yml`: 毎日 JST 9:30 (UTC 0:30) に自動実行するワークフロー。
+
+### セットアップ手順
+
+1. Meta for Developersの同じアプリ（`harley-threads-bot`）に、ユースケース「Instagramでメッセージとコンテンツを管理」を追加
+2. 対象のInstagramアカウントを「Instagramテスター」として招待し、Instagramアプリ側（設定→アカウントセンター→あなたの情報とアクセス許可→アプリとウェブサイト→テスターへのご招待）で承諾
+3. 「Instagramビジネスログインを設定する」でリダイレクトURIを登録
+4. OAuth認可URL（`https://www.instagram.com/oauth/authorize?...&scope=instagram_business_basic,instagram_business_content_publish,...`）で認可コードを取得
+5. `https://api.instagram.com/oauth/access_token` で認可コード→短期トークンに交換
+6. `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&...` で短期→長期トークン(約60日)に交換
+7. GitHub Secretsに `INSTAGRAM_USER_ID` / `INSTAGRAM_ACCESS_TOKEN` を登録
+8. Actionsタブから `Verify Instagram Credentials` を手動実行して疎通確認（投稿は消費しません）
+9. OKなら `Post to Instagram` を手動実行して実際に投稿されるか確認
