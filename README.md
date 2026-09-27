@@ -35,8 +35,13 @@ Threads公式API (Graph API) を使い、GitHub Actionsの定期実行で `conte
 6. **投稿内容を追加**
    - `content/queue.txt` に投稿したいテキストを1行ずつ追記してpush
 
-7. **動作確認**
-   - Actionsタブから `Post to Threads` ワークフローを手動実行 (`Run workflow`) して投稿されるか確認
+7. **Secretsの疎通確認（投稿は消費しません）**
+   - Actionsタブから `Verify Threads Credentials` ワークフローを手動実行 (`Run workflow`)
+   - `THREADS_USER_ID` / `THREADS_ACCESS_TOKEN` が空でないか、トークンがThreads APIに受理されるかだけを確認します（実際の投稿は行われません）
+   - 失敗する場合は Settings → Secrets and variables → **Actions** の **Repository secrets** に、キー名を完全一致で登録できているか確認してください（Environment secretsやCodespaces secretsに登録すると届きません）
+
+8. **実際の投稿で動作確認**
+   - 疎通確認がOKになったら、Actionsタブから `Post to Threads` ワークフローを手動実行 (`Run workflow`) して実際に投稿されるか確認
 
 ### 注意事項
 
