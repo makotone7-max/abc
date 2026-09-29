@@ -1,9 +1,6 @@
 name: Post to Instagram
 
 on:
-  schedule:
-    # 毎日 09:30 JST (UTC 00:30) に実行
-    - cron: "30 0 * * *"
   workflow_dispatch: {}
 
 permissions:
