@@ -31,8 +31,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if ! git diff --quiet -- content/queue.txt; then
-            git add content/queue.txt
+          if ! git diff --quiet -- content/queue.jsonl; then
+            git add content/queue.jsonl
             git commit -m "chore: consume posted queue item"
             git push
           fi
