@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 """Threads自動投稿スクリプト。
 
-content/queue.txt の先頭1行を Threads (公式 Graph API) に投稿し、
+content/queue.jsonl の先頭1行を Threads (公式 Graph API) に投稿し、
 成功したらそのキューから当該行を削除する。
+
+キューの各行はJSON形式: {"text": "...", "image": "content/images/xxx.jpg"}
+"image"は省略可能で、あればIMAGE投稿、なければTEXT投稿になる。
+画像はこのリポジトリが public であることを利用し、
+raw.githubusercontent.com 経由でThreadsに参照させる(画像は事前にmain
+ブランチへpushされている必要がある)。
 
 必要な環境変数:
   THREADS_USER_ID     投稿先の Threads ユーザーID
@@ -17,15 +23,17 @@ import urllib.parse
 import urllib.request
 
 GRAPH_API_BASE = "https://graph.threads.net/v1.0"
-QUEUE_PATH = os.path.join(os.path.dirname(__file__), "..", "content", "queue.txt")
+RAW_BASE = "https://raw.githubusercontent.com/makotone7-max/abc/main"
+QUEUE_PATH = os.path.join(os.path.dirname(__file__), "..", "content", "queue.jsonl")
 
 
 def api_request(url, data=None, method="GET"):
-    if data is not None:
-        url = f"{url}?{urllib.parse.urlencode(data)}" if method == "GET" else url
-    req = urllib.request.Request(url, method=method)
     if data is not None and method != "GET":
-        req.data = urllib.parse.urlencode(data).encode()
+        req = urllib.request.Request(url, method=method, data=urllib.parse.urlencode(data).encode())
+    else:
+        if data is not None:
+            url = f"{url}?{urllib.parse.urlencode(data)}"
+        req = urllib.request.Request(url, method=method)
     try:
         with urllib.request.urlopen(req) as res:
             return json.loads(res.read())
@@ -47,20 +55,26 @@ def write_queue(lines):
             f.write(line + "\n")
 
 
-def create_and_publish(user_id, access_token, text):
+def create_and_publish(user_id, access_token, text, image_path):
+    data = {
+        "text": text,
+        "access_token": access_token,
+    }
+    if image_path:
+        data["media_type"] = "IMAGE"
+        data["image_url"] = f"{RAW_BASE}/{image_path}"
+    else:
+        data["media_type"] = "TEXT"
+
     container = api_request(
         f"{GRAPH_API_BASE}/{user_id}/threads",
-        data={
-            "media_type": "TEXT",
-            "text": text,
-            "access_token": access_token,
-        },
+        data=data,
         method="POST",
     )
     creation_id = container["id"]
 
     # Threadsは公開前にコンテナが処理されるまで少し待つ必要がある
-    time.sleep(5)
+    time.sleep(10 if image_path else 5)
 
     result = api_request(
         f"{GRAPH_API_BASE}/{user_id}/threads_publish",
@@ -82,12 +96,15 @@ def main():
 
     queue = read_queue()
     if not queue:
-        print("投稿キューが空です。content/queue.txt に投稿内容を追加してください。")
+        print("投稿キューが空です。content/queue.jsonl に投稿内容を追加してください。")
         return
 
-    text = queue[0]
-    print(f"投稿します: {text!r}")
-    result = create_and_publish(user_id, access_token, text)
+    entry = json.loads(queue[0])
+    text = entry["text"]
+    image_path = entry.get("image")
+
+    print(f"投稿します: text={text!r} image={image_path!r}")
+    result = create_and_publish(user_id, access_token, text, image_path)
     print(f"投稿成功: {result}")
 
     write_queue(queue[1:])
